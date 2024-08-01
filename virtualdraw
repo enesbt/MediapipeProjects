@@ -1,0 +1,91 @@
+import cv2
+import mediapipe as mp
+import numpy as np
+mp_drawing = mp.solutions.drawing_utils
+mp_drawing_styles = mp.solutions.drawing_styles
+mp_hands = mp.solutions.hands
+cap = cv2.VideoCapture(0)
+prev_x, prev_y = None,None
+
+
+canvas = np.zeros([512,512,3],dtype=np.uint8)+255
+colors = [(255,255,255),(0, 0, 255), (0, 255, 0), (255, 0, 0)]
+colors_index = 0
+
+with mp_hands.Hands(
+    model_complexity=0,
+    min_detection_confidence=0.5,
+    min_tracking_confidence=0.5) as hands:
+  while cap.isOpened():
+    success, image = cap.read()
+    if not success:
+      print("Ignoring empty camera frame.")
+      # If loading a video, use 'break' instead of 'continue'.
+      continue
+
+    # To improve performance, optionally mark the image as not writeable to
+    # pass by reference.
+    image.flags.writeable = False
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    results = hands.process(image)
+
+    # Draw the hand annotations on the image.
+    image.flags.writeable = True
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    image_height, image_width, _ = image.shape
+    cv2.rectangle(image,(50,20),(90,50),(0,0,255),-1)
+    cv2.rectangle(image,(100,20),(140,50),(0,255,0),-1)
+    cv2.rectangle(image,(150,20),(190,50),(255,0,0),-1)
+
+    rect_redx1,rect_redx2 = min(50,90),max(50,90)
+    rect_redy1,rect_redy2 = min(20,50),max(20,50)
+
+    rect_gx1,rect_gx2 = min(100,140),max(100,140)
+    rect_gy1,rect_gy2 = min(20,50),max(20,50)
+
+    rect_bx1,rect_bx2 = min(150,190),max(150,190)
+    rect_by1,rect_by2 = min(20,50),max(20,50)
+
+    if results.multi_hand_landmarks:
+
+       for hand_landmarks in results.multi_hand_landmarks:
+
+           index_fingerx = int(hand_landmarks.landmark[8].x*image_width)
+           index_fingery = int(hand_landmarks.landmark[8].y*image_height)
+
+
+
+           if rect_redx1<=index_fingerx<=rect_redx2 and rect_redy1<=index_fingery<=rect_redy2:
+               colors_index=1
+               cv2.putText(image,"RED",(400,300),1,1,(0,0,0),cv2.FONT_HERSHEY_SIMPLEX)
+           elif rect_gx1<=index_fingerx<=rect_gx2 and rect_gy1<=index_fingery<=rect_gy2:
+               colors_index=2
+               cv2.putText(image,"GREEN",(400,300),1,1,(0,0,0),cv2.FONT_HERSHEY_SIMPLEX)
+
+           elif rect_bx1<=index_fingerx<=rect_bx2 and rect_by1<=index_fingery<=rect_by2:
+               colors_index=3
+               cv2.putText(image,"BLUE",(400,300),1,1,(0,0,0),cv2.FONT_HERSHEY_SIMPLEX)
+
+
+
+           if prev_x is not None and prev_y is not None:
+               cv2.line(canvas, (prev_x, prev_y), (index_fingerx, index_fingery), colors[colors_index], 5)
+
+               # Update previous coordinates
+           prev_x, prev_y = index_fingerx, index_fingery
+           mp_drawing.draw_landmarks(
+               image,
+               hand_landmarks,
+               mp_hands.HAND_CONNECTIONS,
+           )
+    #canvas = cv2.flip(canvas, 1)
+
+    image = cv2.flip(image, 1)
+    flip_canvas = cv2.flip(canvas,1)
+    cv2.imshow('MediaPipe Hands', image)
+    cv2.imshow("canvas", flip_canvas)
+    if cv2.waitKey(5) & 0xFF == 27:
+      break
+cap.release()
+
+cv2.destroyAllWindows()
